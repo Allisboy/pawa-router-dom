@@ -1,0 +1,29 @@
+{
+  "name": "pawa-router-dom",
+  "version": "1.0.0",
+  "description": "pawajs dom router for spa apps",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Allisboy/pawa-router-dom.git"
+  },
+  "keywords": [
+    "router",
+    "pawajs",
+    "js",
+    "web",
+    "spa"
+  ],
+  "author": "Allwell Oriso-owubo Owupele",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Allisboy/pawa-router-dom/issues"
+  },
+  "homepage": "https://github.com/Allisboy/pawa-router-dom#readme",
+  "peerDependencies": {
+    "pawajs": "^1.0.4"
+  }
+}

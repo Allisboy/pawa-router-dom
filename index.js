@@ -1,5 +1,5 @@
-import { setPlugin, state ,components, component,render,RegisterComponent, stateWatch} from "./index.js"
-import { createEffect } from "./reactive.js"
+import { state ,components, component,RegisterComponent} from "pawajs"
+import { createEffect } from "pawajs/reactive.js"
 export const validRoute=(...routes)=>{
   routes.forEach(r =>{
     allRoute.push(r)
