@@ -1,6 +1,6 @@
 {
   "name": "pawa-router-dom",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "pawajs dom router for spa apps",
   "main": "index.js",
   "scripts": {
@@ -24,6 +24,6 @@
   },
   "homepage": "https://github.com/Allisboy/pawa-router-dom#readme",
   "peerDependencies": {
-    "pawajs": "^1.0.4"
+    "pawajs": "^1.0.6"
   }
 }

@@ -1,212 +1,289 @@
-import { state ,components, component,RegisterComponent} from "pawajs"
-import { createEffect } from "pawajs/reactive.js"
-export const validRoute=(...routes)=>{
-  routes.forEach(r =>{
-    allRoute.push(r)
-  })
-}
+import {$state,runEffect,setContext,useContext,useInsert,useValidateProps
+  ,useRef, useInnerContext, useComponent} from 'pawajs';
 
-const allRoute=[]
-const isValidRoute=state(null)
-let currentRouteElement=document.createComment(`route`);
-const isMatch = state( window.location.pathname)
-let currentPath=null
-
-// Add window location listener
-window.addEventListener('popstate', () => {
-    isMatch.value = window.location.pathname;
-});
-
-window.addEventListener('pushchange', () => {
-    isMatch.value = window.location.pathname;
-});
-
-export const navigate = (path) => {
-    window.history.pushState({}, '', path);
-    // Dispatch custom event to notify route changes
-    window.dispatchEvent(new CustomEvent('pushchange'));
-    // Update global router state
-    isMatch.value= path;
-  }
-  
-  // For hash routing
-//   export const hashNavigate = (path) => {
-//     window.location.hash = path;
-//     global.$hash = path;
-//     window.dispatchEvent(new CustomEvent('pushchange')); 
-//   }
-
- export const useParams=()=>{
-  let searchParam={}
-  const [match, params ] = matchRoute(currentPath, isMatch.value);
-  const searchParams=new URLSearchParams(window.location.search)
-    for (const [key,value] of searchParams.entries()){
-      searchParam[key]=value
-    }
-   return {
-    searchParams:searchParam,
-    ...params
-   };
-  }
-  export const startRouter=()=>{
-    allRoute.forEach(r =>{
-      const [match,params,path] = matchRoute(r,window.location.pathname)
-      if (match === false && !allRoute.includes(path) ) {
-        navigate('/404')
-        isValidRoute.value=false
-      }else{
-        isValidRoute.value=true
-        return
-      }
-    })
-  }
 const matchRoute = (pattern, path) => {
-    try{
-      // Remove trailing slashes for consistency
-    const cleanPattern = pattern.replace(/\/$/, '');
-    const cleanPath = path.replace(/\/$/, '');
+  // Remove trailing slashes for consistency
+  const cleanPattern = pattern.replace(/\/$/, '');
+  const cleanPath = path.replace(/\/$/, '');
+  
+  const patternParts = cleanPattern.split('/');
+  const pathParts = cleanPath.split('/');
+  
+  if (patternParts.length !== pathParts.length) {
     
-    const patternParts = cleanPattern.split('/');
-    const pathParts = cleanPath.split('/');
-    
-    if (patternParts.length !== pathParts.length) {
-        
-      return [ false,  {} , path];
+    return [false, {}];
+  }
+  
+  const params = {};
+  
+  const match = patternParts.every((part, index) => {
+    if (part.startsWith(':')) {
+      // This is a parameter
+      const paramName = part.slice(1);
+      params[paramName] = pathParts[index];
+      return true;
     }
+    return part === pathParts[index];
+  });
+  
+  return [match, params];
+}
+const routeContext=setContext()
+const Router = ({children}) => {
+const  {setValue}=routeContext
+  const routes=$state([])
+  const current=$state('')
+  const group=$state('')
+  const prefix=$state('')
+  const for404=$state(false)
+  const isRoute=$state({})
+  const routeParams=useRef()
+  const routeMap=new Map()
+  const checkRoute=(route)=>{
+    return routeMap.has(route)
+  }
+  const setRoute=(route,groups='',prefixs='')=>{
     
-    const params = {};
-    
-    const match = patternParts.every((part, index) => {
-      if (part.startsWith(':')) {
-        // This is a parameter
-        const paramName = part.slice(1);
-        params[paramName] = pathParts[index];
-        return true;
-      }
-      return part === pathParts[index];
-    });
-    
-    return [ match, params,path ];
-    }catch(error){
-      console.log(error + ' could not match the routes ' + pattern + ' at ',path)
+    if(routeMap.has(route)){
+      return
+    }else{
+      routes.value.push({route:route,group:groups,prefix:prefixs})
+      routeMap.set(route,{route:route,group:groups,prefix:prefixs})
     }
   }
   
-  // Usage in router function
-  const routeComponents = new Map()
-  const router = (el, path, context, isMatch) => {
-    context.navigate=navigate
-      const parent=el.ParentElement
-      const routeGuard = el.getAttribute('$route-guard');
-      const routeFallback = el.getAttribute('$route-fallback') || '/';
-      const fragment=document.createDocumentFragment()
-      el.setAttribute('suspense','true')
-      el.replaceWith(currentRouteElement);
-      if(components.has(el.tagName)){
-        //   fragment.appendChild(el)
-          routeComponents.set(path, {
-            element: el,
-            component: el.tagName
-        })
-
-        }
-        const evaluate = () => {
-          const [match, params ] = matchRoute(path, isMatch.value);
-
-          
-          try {
-              if (match) {
-                  // Add params to context
-                  
-                  isValidRoute.value=true
-                  currentPath=path
-                  const routeContext = { ...context, params };
-                  
-                  if (routeGuard) {
-                      const keys = Object.keys(routeContext);
-                      const values = keys.map(key => routeContext[key]);
-                      const guard = new Function(...keys, `return ${routeGuard}`)(...values);
-                      
-                      if (guard) {
-                        const element=routeComponents.get(path)
-                        currentRouteElement.replaceWith(element.element);
-                       let newEle=component(element.element,context)
-                        currentRouteElement=newEle
-                        } else {
-                            const element=document.createComment('<------route--->')
-                          //   currentRouteElement.replaceWith(element);
-                          // //  let newEle=component(element.element,context)
-                          //   console.log(currentRouteElement)
-                          //   currentRouteElement=element
-                            navigate(routeFallback)
-                        }
-                    } else {
-                      const element=routeComponents.get(path)
-                      currentRouteElement.replaceWith(element.element);
-                      let newEle=component(element.element,context)
-                        currentRouteElement=newEle      
-                    }
-                } else {
-                                  
-              }
-          } catch (error) {
-              console.error('Route evaluation error:', error ,el);
-          }
-      };
-  
-      createEffect(() => {
-          evaluate();
-      });
-  }
-
-   const useAttriRoute = (attriPlugin, power) => {
-    power['$route-navigate']=navigate
-    const attribute = (el, attr, context) => {
-    context.useRoute=useRoute
-        if(attr.name === '$route') {
-            router(el, attr.value, context, isMatch)
-        }
-    }
-    attriPlugin.push(attribute)
-  }
-  export default useAttriRoute
- //router  
-export const useRoute = (path=undefined) => {
-  if(path === undefined || path === null){
-    return {
-    current:isMatch,
-    validRoute:isValidRoute,
-    }
-  }else{
-    return window.location.pathname === path ?true:false
-  }
-
-}
-const props={
-  to:{
-    type:String,
-    strict:true,
-    msg:'to props must be a string in RouterLink'
-  }
-}
-
-// router link
-export const RouterLink = ({children,validateProps,insert,hook}) => {
-  const {to}=validateProps(props)
-  const ref={value:null}
-  const isActive=()=>{
-    return useRoute(to)
-  }
-  hook.mount(()=>{
-    ref.value.addEventListener('click',(e)=>{
-      e.preventDefault();
-      navigate(to)
-    })
+  setValue({
+    routes,current,group,for404,setRoute,
+    routeParams,isRoute,prefix,checkRoute,
   })
-  insert({isActive,ref})
- return `
-        <a rest="true" element="ref.value=el" href="${to}">${children}</a>
-       `
-};
+  function enhanceHistoryAPI() {
+    if (window.__pawaHistoryEnhanced) return;
+    window.__pawaHistoryEnhanced = true;
+  
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+  
+    const event = new Event('pushchange');
+    const dispatchPushEvent = () => {
+      window.dispatchEvent(event);
+    };
+  
+    history.pushState = function (...args) {
+      originalPushState.apply(this, args);
+      dispatchPushEvent();
+    };
+  
+    history.replaceState = function (...args) {
+      originalReplaceState.apply(this, args);
+      dispatchPushEvent();
+    };
+    window.addEventListener('popstate', (e)=>{
+      e.preventDefault?.();
+      dispatchPushEvent()
+    })
+  }
+  enhanceHistoryAPI()
+  runEffect(()=>{
+    isRoute.value={
+      current:window.location.pathname,
+      route:''
+    }
+    const pop=(e) => {
+      e.preventDefault()
+        isRoute.value.current = window.location.pathname
+      // console.log(isRoute,current.value);
+    }
+    window.addEventListener('pushchange', pop);
+    return () => {
+      // window.removeEventListener('popstate',pop)
+      // window.removeEventListener('pushchange',pop)
+    }
+  },0)
+  runEffect(() => {
+    return ()=>{
+      // console.log(isRoute);
+    
+     const findRoute= routes.value.filter((route) => {
+       const [match,param]=matchRoute(route.route,isRoute.value.current)          
+          if (param) {
+            routeParams.value=param
+          }
+          return match
+      })
+      if (findRoute.length === 0) {
+        group.value=''
+        prefix.value=''
+        current.value=''
+        for404.value=true
+      } else{
+        for404.value=false
+        const newRoute=findRoute[0]
+        group.value=newRoute.group
+        isRoute.value.route=newRoute.route
+        prefix.value=newRoute.prefix
+      }
+      if (findRoute.length > 1) {
+        console.warn('duplicate routes '+ isRoute.value)
+        __pawaDev.setError({el:'ROUTER',msg:`Duplicate Routes ${isRoute.value}` })
+      }
+    }
+      
+      //  console.log(current.value,routes.value);
+      
+  },{component:true})
+  useInsert({isRoute})
+    return `
+    <template>
+    ${children}
+    </template>
+    `
+}
 
-RegisterComponent(RouterLink);
+
+
+const RouteGroup=({children}) => {
+  const {name} = useValidateProps({
+    name:{
+      type:String,
+      strict:true
+    }
+  })
+  const {group}=useContext(routeContext)
+  const grouping=$state({
+    name:name,
+    enter:false
+  })  
+  runEffect(() => {    
+     grouping.value.enter=true
+  })
+  useInsert({group,name,grouping})
+  return`
+  <template if='group.value === name || !grouping.value.enter'>
+    ${children}
+  </template>
+  `
+}
+const RoutePrefix=({children}) => {
+  const {name} = useValidateProps({
+    name:{
+      type:String,
+      strict:true
+    }
+  })
+  const {prefix}=useContext(routeContext)
+  const prefixing=$state({
+    name:name,
+    enter:false
+  })
+  
+    runEffect(() => {
+    // console.log('prefix',prefixing.value,name);
+    
+      prefixing.value.enter=true
+  })
+  useInsert({prefix,name,prefixing})
+  return`
+  <template if='prefix.value === name || !prefixing.value.enter' >
+    ${children}
+  </template>
+  `
+}
+
+
+const Route=({children}) => {
+    const {route,guard,notfound} = useValidateProps({
+      route:{
+        type:String,
+        default:'/'
+      },
+      guard:{
+        default:1,
+      },
+      notfound:{
+        default:false
+      }
+    })
+    const {setRoute,current,for404,isRoute,checkRoute,isMatchedRoute}=useContext(routeContext)
+    const context=useInnerContext()
+    const contextRoute=useContext(routeContext)
+    const group=context?.grouping?.value?.name ? context.grouping.value.name:''
+    const prefix=context?.prefixing?.value?.name ?context.prefixing.value.name:''
+    const thisRoute=prefix + route
+    const isMatched=$state(false)
+   useComponent()
+    runEffect(() => {
+      // console.log('called',routes);
+      if (!notfound) {
+        if(!checkRoute(thisRoute)){
+          setRoute(thisRoute,group,prefix)
+        // console.log(context,thisRoute,group,prefix);
+        }else{
+        // console.log(contextRoute);
+        }
+        
+      }
+    },0)
+
+    const guardCheck = () => {
+        if (typeof guard === 'function') {
+         return guard()
+        } else {
+          return guard
+        }
+    }
+
+    useInsert({guardCheck,current,for404,isRoute,isMatched})
+    if (notfound) {
+      return `
+    <template if='for404.value'>
+      ${children}
+    </template>
+    `
+    }else{
+      return `
+    <template if='isRoute.value.route === "${thisRoute}"' >
+      ${children}
+    </template>
+    `
+    }
+}
+
+const RouteLink=({href,children})=>{
+  const {navigate}=useRouter()
+  const ref=useRef()
+  runEffect(()=>{
+    const navi=(e)=>{
+      e.preventDefault();
+   navigate(href)
+    }
+    ref.value.addEventListener('click',navi)
+    // console.log(context)
+    return ()=>{
+      ref.value.removeEventListener('click',navi)
+    }
+  })
+  useInsert({ref})
+  return `
+  <a href="${href}" ref="ref" rel="noopener" aria-current="@{isRoute.value.current === '${href}' ? 'page' : false}">${children}</a>
+
+  `
+}
+
+
+export function useRouter(){
+  const {isRoute,routeParams} = useContext(routeContext)
+  return {
+    navigate: (path) => {
+      history.pushState({}, '', path);
+      isRoute.value.current = path;
+      // console.log(isRoute);
+      
+      requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+    },
+    getParams:()=>routeParams.value
+    
+  }
+}
+
+
+export {Router,Route,RouteGroup,RouteLink,RoutePrefix}
